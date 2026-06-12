@@ -1,6 +1,7 @@
 #include <sstream>
 #include <fstream>
 #include <chrono>
+#include <x86intrin.h>
 
 #include "engine.hpp"
 
@@ -40,10 +41,10 @@ namespace csot {
     void Engine::run(Strategy& strategy) {
         strategy.on_init();
         for (const Tick& tick : ticks) {
-            auto start = std::chrono::high_resolution_clock::now();
+            const uint32_t t1 = __rdtsc();
             std::vector<Order> orders = strategy.on_tick(tick);
-            auto end = std::chrono::high_resolution_clock::now();
-            auto latency = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+            const uint32_t t2 = __rdtsc();
+            const uint32_t latency = t2 - t1;
             latency_histogram.record(latency);
 
             for (const Order& order : orders) {
