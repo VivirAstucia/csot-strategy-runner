@@ -46,8 +46,8 @@
 
                 const double mean = s.sum*INV_64;
                 const double var = s.sq_sum*INV_64 - mean*mean;
-                // const double stddev = std::sqrt(var);
-                const double stddev = 1;
+                const double stddev = std::sqrt(var);
+                // const double stddev = 1;
 
                 if (stddev < epsilon) [[unlikely]] return orders;
                 
