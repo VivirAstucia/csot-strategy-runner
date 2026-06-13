@@ -2,6 +2,8 @@
 
 #include "strategy.hpp"
 
+const int32_t MAX_SYMBOLS = 4;
+
 constexpr inline double INV_64 = 1.0/64.0;  
 constexpr inline double epsilon = 1e-9;
 
@@ -12,7 +14,7 @@ struct alignas(64) state {
     uint32_t head = 0;
     int32_t position = 0; // {-1,0,1}
 };
-alignas(64) double mids[64][64];
+alignas(64) double mids[MAX_SYMBOLS][64];
 
 std::vector<csot::Order> orders;
 
@@ -84,8 +86,8 @@ class spec_strategy final : public csot::Strategy {
 
     private:
         int32_t symbolc = 0;
-        state sym_states[64];
-        std::string_view symbols[64] = {""};
+        state sym_states[MAX_SYMBOLS];
+        std::string_view symbols[MAX_SYMBOLS] = {""};
         inline int32_t sti(const std::string_view& s) {
             for(int32_t i=0; i<symbolc; i++) {
                 if (symbols[i].data() == s.data()) [[likely]] {
