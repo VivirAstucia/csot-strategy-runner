@@ -39,5 +39,4 @@ tsan.log.*
 
 tempCodeRunnerFile.epp
 tempCodeRunnerFile.py
-README.md
 data/synthetic_large[0-9].csv

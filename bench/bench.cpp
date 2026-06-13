@@ -1,20 +1,40 @@
 // bench/bench.cpp
-#include <benchmark/benchmark.h>
+#include <chrono>
+#include <cctype>
 #include <dlfcn.h>
+#include <filesystem>
 #include <fstream>
+#include <iostream>
+#include <memory>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
-#include <memory>
-#include <iostream>
-#include <filesystem>
 
+#include "histogram.hpp"
 #include "strategy.hpp"
 
 static std::string g_strategy_so;
 static std::string g_ticks_csv = "data/synthetic_small.csv";
-
 static const char* DEFAULT_SYMBOLS_C[] = {"SYM0", "SYM1", "SYM2", "SYM3"};
+
+static std::string resolve_strategy_path(const std::string& strategy_so) {
+    if (std::filesystem::exists(strategy_so)) {
+        return strategy_so;
+    }
+
+    const std::string build_path = "build/" + strategy_so;
+    if (std::filesystem::exists(build_path)) {
+        return build_path;
+    }
+
+    const std::string local_path = "./" + strategy_so;
+    if (std::filesystem::exists(local_path)) {
+        return local_path;
+    }
+
+    return strategy_so;
+}
 
 static void load_ticks(const std::string& csv_path,
                        std::vector<csot::Tick>& ticks,
@@ -37,97 +57,91 @@ static void load_ticks(const std::string& csv_path,
         std::getline(stream, bid_qty, ',');
         std::getline(stream, ask_qty, ',');
 
-        if (symbol.empty()) continue;
+        if (symbol.empty()) {
+            continue;
+        }
 
-        csot::Tick t{};
         try {
-            t.timestamp_ns = std::stoull(timestamp);
+            csot::Tick tick{};
+            tick.timestamp_ns = std::stoull(timestamp);
             int idx = 0;
             if (symbol.size() > 3 && std::isdigit(static_cast<unsigned char>(symbol[3]))) {
                 idx = (symbol[3] - '0') % 4;
             }
-            t.symbol = std::string_view(DEFAULT_SYMBOLS_C[idx]);
-            t.bid_px = std::stod(bid_px);
-            t.ask_px = std::stod(ask_px);
-            t.bid_qty = static_cast<uint32_t>(std::stoul(bid_qty));
-            t.ask_qty = static_cast<uint32_t>(std::stoul(ask_qty));
-            ticks.push_back(t);
+            tick.symbol = std::string_view(DEFAULT_SYMBOLS_C[idx]);
+            tick.bid_px = std::stod(bid_px);
+            tick.ask_px = std::stod(ask_px);
+            tick.bid_qty = static_cast<uint32_t>(std::stoul(bid_qty));
+            tick.ask_qty = static_cast<uint32_t>(std::stoul(ask_qty));
+            ticks.push_back(tick);
         } catch (...) {
-            // skip malformed
         }
     }
 }
-
-static void BM_PerTick(benchmark::State& state) {
-    static std::vector<csot::Tick> ticks;
-    static std::vector<std::string> storage;
-    static bool loaded = false;
-    if (!loaded) {
-        load_ticks(g_ticks_csv, ticks, storage);
-        if (ticks.empty()) return;
-        loaded = true;
-    }
-
-    // resolve strategy path if needed
-    std::string so_path = g_strategy_so;
-    if (!std::filesystem::exists(so_path)) {
-        std::string alt = std::string("build/") + so_path;
-        if (std::filesystem::exists(alt)) so_path = alt;
-        else {
-            std::string alt2 = std::string("./") + so_path;
-            if (std::filesystem::exists(alt2)) so_path = alt2;
-        }
-    }
-
-    // dlopen the strategy .so and create the strategy instance
-    void* handle = dlopen(so_path.c_str(), RTLD_NOW);
-    if (!handle) {
-        std::cerr << "dlopen failed: " << dlerror() << " (tried '" << so_path << "')\n";
-        return;
-    }
-    using create_fn_t = csot::Strategy*(*)();
-    auto create_fn = (create_fn_t)dlsym(handle, "create_strategy");
-    if (!create_fn) {
-        std::cerr << "dlsym(create_strategy) failed: " << dlerror() << std::endl;
-        dlclose(handle);
-        return;
-    }
-
-    std::unique_ptr<csot::Strategy> strat(create_fn());
-    strat->on_init();
-
-    size_t idx = 0;
-    for (auto _ : state) {
-        const csot::Tick& t = ticks[idx++];
-        auto orders = strat->on_tick(t);
-        benchmark::DoNotOptimize(orders);
-        if (idx == ticks.size()) idx = 0;
-    }
-    state.SetItemsProcessed(state.iterations());
-
-    // cleanup
-    strat.reset();
-    dlclose(handle);
-}
-
-BENCHMARK(BM_PerTick)->UseRealTime();
 
 int main(int argc, char** argv) {
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <strategy.so> [ticks.csv]" << std::endl;
         return 2;
     }
-    g_strategy_so = argv[1];
-    if (argc >= 3) g_ticks_csv = argv[2];
 
-    // build argv for benchmark: keep argv[0] as program name, drop argv[1..2]
-    std::vector<char*> bargs;
-    bargs.push_back(argv[0]);
-    for (int i = 3; i < argc; ++i) bargs.push_back(argv[i]);
-    int bargc = static_cast<int>(bargs.size());
-    char** bargv = bargs.empty() ? nullptr : bargs.data();
-    benchmark::Initialize(&bargc, bargv);
-    if (benchmark::ReportUnrecognizedArguments(bargc, bargv)) return 1;
-    benchmark::RunSpecifiedBenchmarks();
+    g_strategy_so = argv[1];
+    if (argc >= 3) {
+        g_ticks_csv = argv[2];
+    }
+
+    std::vector<csot::Tick> ticks;
+    std::vector<std::string> symbol_storage;
+    load_ticks(g_ticks_csv, ticks, symbol_storage);
+    if (ticks.empty()) {
+        std::cerr << "no ticks loaded" << std::endl;
+        return 1;
+    }
+
+    const std::string so_path = resolve_strategy_path(g_strategy_so);
+    void* handle = dlopen(so_path.c_str(), RTLD_NOW);
+    if (!handle) {
+        std::cerr << "dlopen failed: " << dlerror() << " (tried '" << so_path << "')" << std::endl;
+        return 1;
+    }
+
+    using create_fn_t = csot::Strategy*(*)();
+    auto create_fn = reinterpret_cast<create_fn_t>(dlsym(handle, "create_strategy"));
+    if (!create_fn) {
+        std::cerr << "dlsym(create_strategy) failed: " << dlerror() << std::endl;
+        dlclose(handle);
+        return 1;
+    }
+
+    {
+        std::unique_ptr<csot::Strategy> strategy(create_fn());
+        strategy->on_init();
+
+        csot::LatencyHistogram histogram;
+        for (const csot::Tick& tick : ticks) {
+            const auto start = std::chrono::steady_clock::now();
+            std::vector<csot::Order> orders = strategy->on_tick(tick);
+            const auto stop = std::chrono::steady_clock::now();
+
+            const auto latency = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start).count();
+            histogram.record(static_cast<std::uint64_t>(latency));
+
+            for (const csot::Order& order : orders) {
+                strategy->on_fill(order, order.price, order.qty);
+            }
+        }
+        std::ifstream freq_file(
+        "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq");
+
+        long freq_khz{};
+        if (freq_file >> freq_khz) {
+            std::cout << "CPU freq: "
+                    << (freq_khz / 1000.0)
+                    << " MHz\n";
+        }
+        histogram.print(std::cout);
+    }
+
+    dlclose(handle);
     return 0;
 }

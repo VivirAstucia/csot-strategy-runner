@@ -1,26 +1,22 @@
-#include <cmath>
-
 #include "strategy.hpp"
 
 const int32_t MAX_SYMBOLS = 4;
 
-constexpr inline double INV_64 = 1.0/64.0;  
-constexpr inline double epsilon = 1e-9;
-
 struct alignas(64) state {
-    double sum = 0.0;
-    double sq_sum = 0.0;
+    int64_t sum = 0;
+    int64_t sq_sum = 0;
     uint32_t count = 0;
     uint32_t head = 0;
     int32_t position = 0; // {-1,0,1}
 };
-alignas(64) double mids[MAX_SYMBOLS][64];
+alignas(64) int64_t mids[MAX_SYMBOLS][64];
 
 std::vector<csot::Order> orders;
 
 class spec_strategy final : public csot::Strategy {
     public:
         void on_init() {
+            orders.reserve(1);
         }
 
         [[gnu::hot]]
@@ -30,8 +26,10 @@ class spec_strategy final : public csot::Strategy {
             const int32_t slot = sti(tick.symbol);
             state& s = sym_states[slot];
 
-            const double mid = (tick.bid_px + tick.ask_px) * 0.5;
-            const double old_mid = mids[slot][s.head];
+            const int64_t mid = (
+                (static_cast<int64_t>(tick.bid_px*1000) + static_cast<int64_t>(tick.ask_px*1000))>>1
+            );
+            const int64_t old_mid = mids[slot][s.head];
             mids[slot][s.head++] = mid;
             s.head &= 63;
             if (s.count < 64) [[unlikely]] {
@@ -43,30 +41,28 @@ class spec_strategy final : public csot::Strategy {
                 }
             }
             else {
-                const int32_t diff = mid-old_mid;
+                const int64_t diff = mid-old_mid;
                 s.sum += diff;
                 s.sq_sum += (diff)*(mid-old_mid);
             }
 
-            const double mean = s.sum*INV_64;
-            const double var = s.sq_sum*INV_64-mean*mean;
-            const double diff2 = (mid-mean)*(mid-mean);
+            const int64_t mean = s.sum>>6;
+            const int64_t var = (s.sq_sum>>6)-mean*mean;
+            const int64_t diff2 = (mid-mean)*(mid-mean);
 
-            if (var < epsilon) [[unlikely]] return orders;
+            if (var < 1) [[unlikely]] return orders;
             
 
-            if (s.position == 0) {
-                if (diff2 >= 4.0*var) [[unlikely]] {
-                    if (mid > mean) {
-                        orders.emplace_back(csot::Order::Side::SELL, tick.symbol, tick.bid_px, 1);
-                    }
-                    else {
-                        orders.emplace_back(csot::Order::Side::BUY, tick.symbol, tick.ask_px, 1);
-                    }
+            if ((diff2>>2) >= var && s.position == 0) [[unlikely]] {
+                if (mid > mean) {
+                    orders.emplace_back(csot::Order::Side::SELL, tick.symbol, tick.bid_px, 1);
+                }
+                else {
+                    orders.emplace_back(csot::Order::Side::BUY, tick.symbol, tick.ask_px, 1);
                 }
                 return orders;
             }
-            else if (diff2 <= 0.25*var) {
+            else if (diff2 <= (var>>2) && s.position != 0) [[unlikely]] {
                 if (s.position == 1) {
                     orders.emplace_back(csot::Order::Side::SELL, tick.symbol, tick.bid_px, 1);
                 }

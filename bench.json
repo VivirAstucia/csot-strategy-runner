@@ -1,10 +1,10 @@
 {
   "context": {
-    "date": "2026-06-13T13:35:23+05:30",
+    "date": "2026-06-13T13:54:42+05:30",
     "host_name": "192.168.1.13",
     "executable": "./build/quant_bench",
     "num_cpus": 14,
-    "mhz_per_cpu": 3728,
+    "mhz_per_cpu": 1712,
     "cpu_scaling_enabled": false,
     "aslr_enabled": true,
     "caches": [
@@ -33,7 +33,7 @@
         "num_sharing": 12
       }
     ],
-    "load_avg": [0.348145,0.412109,0.717285],
+    "load_avg": [0.61377,0.581055,0.625488],
     "library_version": "1.9.5",
     "library_build_type": "release",
     "json_schema_version": 1
@@ -48,11 +48,11 @@
       "repetitions": 1,
       "repetition_index": 0,
       "threads": 1,
-      "iterations": 91685096,
-      "real_time": 6.6327952255175147e+00,
-      "cpu_time": 6.5997692143988198e+00,
+      "iterations": 116365341,
+      "real_time": 5.9784242457616372e+00,
+      "cpu_time": 5.9558311782887321e+00,
       "time_unit": "ns",
-      "items_per_second": 1.5076599925063667e+08
+      "items_per_second": 1.6726815610466972e+08
     }
   ]
 }
