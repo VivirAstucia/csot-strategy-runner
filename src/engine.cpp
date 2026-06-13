@@ -10,7 +10,6 @@ namespace csot {
 
 
     void Engine::load_ticks(std::string csv_path) {
-        // TODO : memory-mapped parsing/or some high performance parsing library
         std::ifstream file(csv_path);
         if (!file) {
             std::cerr << "Can't open csv: " << csv_path << std::endl;
@@ -41,9 +40,9 @@ namespace csot {
     void Engine::run(Strategy& strategy) {
         strategy.on_init();
         for (const Tick& tick : ticks) {
-            const uint32_t t1 = __rdtsc();
+            _mm_lfence(); const uint32_t t1 = __rdtsc();
             std::vector<Order> orders = strategy.on_tick(tick);
-            const uint32_t t2 = __rdtsc();
+            _mm_lfence(); const uint32_t t2 = __rdtsc();
             const uint32_t latency = t2 - t1;
             latency_histogram.record(latency);
 

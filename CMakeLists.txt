@@ -83,9 +83,9 @@ set_target_properties(spec_strategy PROPERTIES PREFIX "")   # produce "spec_stra
 
 # -------- Benchmarks (Google Benchmark) --------
 # Uncomment when you've written bench/bench.cpp.
-# find_package(benchmark REQUIRED)
-# add_executable(quant_bench bench/bench.cpp)
-# target_link_libraries(quant_bench PRIVATE engine benchmark::benchmark)
+find_package(benchmark REQUIRED)
+add_executable(quant_bench bench/bench.cpp)
+target_link_libraries(quant_bench PRIVATE engine benchmark::benchmark)
 
 # ===============================================================
 # Help message after first configure

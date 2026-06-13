@@ -1,0 +1,58 @@
+{
+  "context": {
+    "date": "2026-06-13T12:59:19+05:30",
+    "host_name": "192.168.1.13",
+    "executable": "./build/quant_bench",
+    "num_cpus": 14,
+    "mhz_per_cpu": 2423,
+    "cpu_scaling_enabled": false,
+    "aslr_enabled": true,
+    "caches": [
+      {
+        "type": "Data",
+        "level": 1,
+        "size": 49152,
+        "num_sharing": 1
+      },
+      {
+        "type": "Instruction",
+        "level": 1,
+        "size": 65536,
+        "num_sharing": 1
+      },
+      {
+        "type": "Unified",
+        "level": 2,
+        "size": 3145728,
+        "num_sharing": 1
+      },
+      {
+        "type": "Unified",
+        "level": 3,
+        "size": 18874368,
+        "num_sharing": 12
+      }
+    ],
+    "load_avg": [1.65967,1.07617,1.05518],
+    "library_version": "1.9.5",
+    "library_build_type": "release",
+    "json_schema_version": 1
+  },
+  "benchmarks": [
+    {
+      "name": "BM_PerTick/real_time",
+      "family_index": 0,
+      "per_family_instance_index": 0,
+      "run_name": "BM_PerTick/real_time",
+      "run_type": "iteration",
+      "repetitions": 1,
+      "repetition_index": 0,
+      "threads": 1,
+      "iterations": 144577051,
+      "real_time": 4.8253095506804495e+00,
+      "cpu_time": 4.7949332913146776e+00,
+      "time_unit": "ns",
+      "items_per_second": 2.0724059036978945e+08
+    }
+  ]
+}
