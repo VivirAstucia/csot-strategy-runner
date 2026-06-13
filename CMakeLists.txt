@@ -82,8 +82,19 @@ add_library(spec_strategy SHARED strategies/spec_strategy.cpp)
 set_target_properties(spec_strategy PROPERTIES PREFIX "")   # produce "spec_strategy.so" not "libspec_strategy.so"
 
 # -------- Benchmarks --------
+
+# add_executable(quant_bench bench/bench.cpp)
+# target_link_libraries(quant_bench PRIVATE ${CMAKE_DL_LIBS})
+find_package(benchmark REQUIRED)
+
 add_executable(quant_bench bench/bench.cpp)
-target_link_libraries(quant_bench PRIVATE ${CMAKE_DL_LIBS})
+
+target_link_libraries(
+    quant_bench
+    PRIVATE
+    benchmark::benchmark
+    ${CMAKE_DL_LIBS}
+)
 
 # ===============================================================
 # Help message after first configure
